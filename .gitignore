@@ -174,6 +174,5 @@ cython_debug/
 .pypirc
 
 data/
-airflow/logs/
-airflow/plugins/
+airflow/
 *.pyc
