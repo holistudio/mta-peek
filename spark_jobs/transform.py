@@ -41,3 +41,12 @@ df = df \
                 .when(F.col("hour_of_day").between(10,15), "midday")
                 .when(F.col("hour_of_day").between(16,19), "evening_peak")
                 .otherwise("late_night"))
+
+# define a window for summing up ridership for each station-month
+station_month_w = Window.partitionBy("station_complex", "year", "month")
+df = df.withColumn("monthly_ridership", F.sum("ridership").over(station_month_w))
+
+# rank monthly ridership among all stations
+rank_w = Window.partitionBy("year", "month").orderBy(F.desc("monthly_ridership"))
+df = df.withColumn("monthly_rank", F.dense_rank(rank_w))
+
