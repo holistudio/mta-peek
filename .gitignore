@@ -177,3 +177,4 @@ data/
 airflow/
 *.pyc
 /.vscode
+/data_quality
