@@ -24,12 +24,14 @@ df = spark.read.parquet(args.input)
 apt_by_route = spark.read.parquet(f"{PROCESSED}/apt/")
 station_routes = spark.read.parquet(f"{PROCESSED}/station_route_lookup/")
 
+# consider only subway transit mode
+df = df.filter(F.col("transit_mode") == "subway")
 
 # set transit_timestamp column data type to timestamp
 df = df.withColumn("transit_timestamp", F.to_timestamp("transit_timestamp"))
 
 # aggregate ridership per station-hour (combine MetroCard + OMNY)
-df = df.groupBy("station_complex", "transit_timestamp").agg(
+df = df.groupBy("station_complex", "station_complex_id", "transit_timestamp", "borough").agg(
     F.sum("ridership").alias("ridership")
 )
 
@@ -53,11 +55,11 @@ df = df.withColumn("monthly_ridership", F.sum("ridership").over(station_month_w)
 
 # rank monthly ridership among all stations
 rank_w = Window.partitionBy("year", "month").orderBy(F.desc("monthly_ridership"))
-df = df.withColumn("monthly_rank", F.dense_rank(rank_w))
+df = df.withColumn("monthly_rank", F.dense_rank().over(rank_w))
 
 # focus in on sum of ridership volume in morning and evening peak hours
 peak_df = df.filter(F.col("time_window").isin("morning_peak", "evening_peak")) \
-    .groupBy("station_complex", "year", "month") \
+    .groupBy("station_complex", "station_complex_id", "borough", "year", "month") \
     .agg(F.sum("ridership").alias("peak_hr_ridership"))
 
 # compute a baseline volume for detecting unusually high ridership volume 
