@@ -146,6 +146,12 @@ csi_df = csi_df.withColumn(
     ((F.col("csi") > 0.65) & (F.col("apt_minutes") > 3.0)).cast("int")
 )
 
+# compute a rolling 6 month average of the CSI and APT for time series trend analysis
+rolling_w = Window.partitionBy("station_complex_id").orderBy("year", "month").rowsBetween(-5, 0)
+csi_df = csi_df \
+    .withColumn("csi_6mo_rolling", F.avg("csi").over(rolling_w)) \
+    .withColumn("apt_6mo_rolling", F.avg("apt_minutes").over(rolling_w)) \
+
 df.write.mode("append").partitionBy("year", "month") \
     .parquet(f"{PROCESSED}/ridership_transformed/")
 
