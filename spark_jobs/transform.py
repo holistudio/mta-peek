@@ -22,6 +22,7 @@ spark = SparkSession.builder \
 
 df = spark.read.parquet(args.input)
 apt = spark.read.parquet(f"{PROCESSED}/apt/")
+station_routes = spark.read.parquet(f"{PROCESSED}/station_route_lookup/")
 
 
 # set transit_timestamp column data type to timestamp
