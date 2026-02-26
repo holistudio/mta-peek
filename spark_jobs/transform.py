@@ -21,7 +21,7 @@ spark = SparkSession.builder \
     .getOrCreate()
 
 df = spark.read.parquet(args.input)
-apt = spark.read.parquet(f"{PROCESSED}/apt/")
+apt_by_route = spark.read.parquet(f"{PROCESSED}/apt/")
 station_routes = spark.read.parquet(f"{PROCESSED}/station_route_lookup/")
 
 
@@ -87,3 +87,67 @@ df_hhi = df \
 # compute capacity stress index (CSI) as a product of normalized volume and HHI
 csi_df = peak_df.join(df_hhi, ["station_complex", "year", "month"]) \
     .withColumn("csi", F.col("volume_component") * F.col("hhi_monthly_concentration"))
+
+# compute additional platform time (APT) during peak hours
+apt_peak = apt_by_route.filter(F.col("period") == "peak") \
+    .select(
+        F.col("line"),
+        F.col("year"),
+        F.col("month_num").alias("month"),
+        F.col("additional_platform_time").alias("apt_minutes"),
+        F.col("num_passengers").alias("line_passengers"),
+        F.col("customer_journey_time").alias("cjtp"),
+    )
+
+# join APT with station_route lookup table
+complex_apt = station_routes.join(
+    apt_peak,
+    station_routes["route"] == apt_peak["line"],
+    "inner"
+).select(
+    station_routes["complex_id"],
+    apt_peak["year"],
+    apt_peak["month"],
+    apt_peak["apt_minutes"],
+    apt_peak["line_passengers"],
+    apt_peak["cjtp"],
+    apt_peak["line"],
+)
+
+# weighted average APT for each subway line at a particular station
+# weighted according to passengers of each line
+complex_apt = complex_apt \
+    .withColumn("weighted_apt", F.col("apt_minutes") * F.col("line_passengers")) \
+    .withColumn("weighted_cjtp", F.col("cjtp") * F.col("line_passengers")) \
+    .groupBy("complex_id", "year", "month") \
+    .agg(
+        (F.sum("weighted_apt") / F.sum("line_passengers")).alias("apt_minutes"),
+        (F.sum("weighted_cjtp") / F.sum("line_passengers")).alias("cjtp"),
+        F.sum("line_passengers").alias("total_line_passengers"),
+        F.count("line").alias("num_lines_serving"),
+    )
+
+# left join complext_apt with csi_df
+csi_df = csi_df.join(
+    complex_apt,
+    (csi_df["station_complex_id"] == complex_apt["complex_id"]) &
+    (csi_df["year"] == complex_apt["year"]) &
+    (csi_df["month"] == complex_apt["month"]),
+    "left"
+).drop(complex_apt["complex_id"]) \
+ .drop(complex_apt["year"]) \
+ .drop(complex_apt["month"])
+
+# compute danger zone (!) when CSI and APT both exceed thresholds
+csi_df = csi_df.withColumn(
+    "danger_zone",
+    ((F.col("csi") > 0.65) & (F.col("apt_minutes") > 3.0)).cast("int")
+)
+
+df.write.mode("append").partitionBy("year", "month") \
+    .parquet(f"{PROCESSED}/ridership_transformed/")
+
+csi_df.write.mode("append").partitionBy("year", "month") \
+    .parquet(f"{PROCESSED}/csi/")
+
+spark.stop()
