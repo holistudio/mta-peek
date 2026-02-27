@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from airflow.decorators import dag, task
 
 DATASETS = {
@@ -170,14 +170,15 @@ def mta_pipeline():
             raise RuntimeError(f"Spark transform failed:\n{result.stderr}")
         return raw_path
     
-    def write_audit_log(quality_results: list[dict]):
+    @task()
+    def write_audit_log(quality_results: list[dict], transform_path: str):
         """Append data quality audit log with one record per fetched dataset"""
         import pandas as pd
 
         log_path = "data_quality/audit_log.csv"
         records = pd.DataFrame([
             {
-                "run_date": datetime.utcnow.isoformat(),
+                "run_date": datetime.now(tz=timezone.utc).isoformat(),
                 "dataset": r["dataset"],
                 "rows_ingested": r["rows"],
                 "source_file": r["path"],
@@ -215,6 +216,10 @@ def mta_pipeline():
         apt_lake_path=apt_lake,
     )
 
-    write_audit_log([quality_ridership, quality_apt])
+    write_audit_log(
+        quality_results=[quality_ridership, quality_apt],
+        transform_path=transformed, # transformed never used, but creates necessary dependency with transform_ridership task
+    ) 
+
 
 mta_pipeline()
