@@ -100,7 +100,21 @@ def mta_pipeline():
         df.to_parquet(out_path, index=False)
         log.info("[%s] Parquet written", dataset_name)
         return out_path
-    pass
+    
+    @task()
+    def transform_and_append(raw_path: str, dataset_name: str) -> str:
+        """Automatically run PySpark transformation script for given dataset"""
+        import subprocess
+        result = subprocess.run(
+            [
+                "python", "spark_jobs/transform.py",
+                "--input", raw_path,
+            ]
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Spark job failed for {dataset_name}:\n{result.stderr}")
+
+        return raw_path
 
     raw_ridership = ingest_from_api.override(task_id="ingest_ridership")(
         dataset_id=DATASETS["ridership"]["id"],
@@ -110,5 +124,15 @@ def mta_pipeline():
         dataset_id=DATASETS["apt"]["id"],
         dataset_name="apt"
     )
+
+    transformed_ridership = transform_and_append.override(task_id="transform_ridership")(
+        raw_path=raw_ridership,
+        dataset_name="ridership"
+    )
+    transformed_apt = transform_and_append.override(task_id="transform_apt")(
+        raw_path=raw_apt,
+        dataset_name="apt"
+    )
+
 
 mta_pipeline()
