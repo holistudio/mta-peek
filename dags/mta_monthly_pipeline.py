@@ -14,6 +14,7 @@ DATASETS = {
             "station_complex_id",
             "ridership",
         ],
+        "numeric_cols": ["ridership", "transfers", "latitude", "longitude"],
         "min_rows": 200_000,                        # ~500 complexes × 24h × 30d
         "has_station_check": True,
     },
@@ -27,6 +28,15 @@ DATASETS = {
             "division",
             "additional_platform_time",             # sodapy snake_cases the header
             "num_passengers",
+        ],
+        "numeric_cols": [
+            "additional_platform_time",
+            "num_passengers",
+            "customer_journey_time",
+            "total_apt",
+            "total_att",
+            "over_five_mins",
+            "over_five_mins_perc",
         ],
         "min_rows": 20,                             # ~25 lines × 2 periods = ~50 rows
         "has_station_check": False,                 # APT is by line, not station_complex
