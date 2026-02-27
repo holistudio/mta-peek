@@ -141,10 +141,16 @@ csi_df = csi_df.join(
  .drop(complex_apt["month"])
 
 # compute danger zone (!) when CSI and APT both exceed thresholds
-csi_df = csi_df.withColumn(
-    "danger_zone",
-    ((F.col("csi") > 0.65) & (F.col("apt_minutes") > 3.0)).cast("int")
-)
+pctl_w = Window.partitionBy("year", "month")
+csi_df = csi_df \
+    .withColumn("csi_pctl", F.percent_rank().over(pctl_w.orderBy("csi"))) \
+    .withColumn("apt_minutes_pctl", F.percent_rank().over(pctl_w.orderBy("apt_minutes"))) \
+    .withColumn("danger_zone", ((F.col("csi_pctl") >= 0.9) & (F.col("apt_minutes_pctl") >= 0.9)).cast("int"))
+
+# csi_df = csi_df.withColumn(
+#     "danger_zone",
+#     ((F.col("csi") > 0.65) & (F.col("apt_minutes") > 3.0)).cast("int")
+# )
 
 # compute a rolling 6 month average of the CSI and APT for time series trend analysis
 rolling_w = Window.partitionBy("station_complex_id").orderBy("year", "month").rowsBetween(-5, 0)
