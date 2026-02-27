@@ -105,6 +105,11 @@ def mta_pipeline():
         client.close()
         log.info("[%s] API returned %d rows", dataset_name, len(df))
 
+        # cast numeric columns from sodapy's string representation
+        for col in config.get("numeric_cols", []):
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
         out_path = f"{raw_dir}/{dataset_name}_{first_of_prior.strftime('%Y_%m')}.parquet"
         df.to_parquet(out_path, index=False)
         log.info("[%s] Parquet written", dataset_name)
