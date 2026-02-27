@@ -101,21 +101,6 @@ def mta_pipeline():
         return out_path
     
     @task()
-    def transform_and_append(raw_path: str, dataset_name: str) -> str:
-        """Automatically run PySpark transformation script for given dataset"""
-        import subprocess
-        result = subprocess.run(
-            [
-                "python", "spark_jobs/transform.py",
-                "--input", raw_path,
-            ]
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"Spark job failed for {dataset_name}:\n{result.stderr}")
-
-        return raw_path
-    
-    @task()
     def run_data_quality(raw_path: str, dataset_name: str) -> dict:
         """Validate row counts, nulls, and station names (ridership data only)"""
         import pandas as pd
@@ -147,6 +132,44 @@ def mta_pipeline():
                 )
         return {"dataset": dataset_name, "rows": len(df), "path": raw_path}
     
+    @task()
+    def append_apt_to_lake(quality_result: dict) -> str:
+        """Append latest APT data to exisiting processed APT data lake"""
+        import pandas as pd
+
+        processed_dir = os.environ["DATA_PROCESSED"]
+        raw_path = quality_result["path"]
+
+        df = pd.read_parquet(raw_path)
+        df["month"] = pd.to_datetime(df["month"])
+        df["year"] = df["month"].dt.year
+        df["month_num"] = df["month"].dt.month
+
+        # output distinct parquet file inside the existing APT data directory
+        today = date.today()
+        if today.month == 1:
+            month_label = f"{today.year - 1}_12"
+        else:
+            month_label = f"{today.year}_{today.month - 1:02d}"
+
+        out_path = f"{processed_dir}/apt/apt_{month_label}.parquet"
+        df.to_parquet(out_path, index=False)
+        return out_path
+    
+    @task()
+    def transform_ridership(ridership_quality: dict, apt_lake_path: str) -> str:
+        """Automatically run PySpark transformation script for all fetched datasets"""
+        import subprocess
+
+        raw_path = ridership_quality["path"]
+        result = subprocess.run(
+            ["python", "spark_jobs/transform.py", "--input", raw_path],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Spark transform failed:\n{result.stderr}")
+        return raw_path
+    
     def write_audit_log(quality_results: list[dict]):
         """Append data quality audit log with one record per fetched dataset"""
         import pandas as pd
@@ -176,22 +199,20 @@ def mta_pipeline():
         dataset_name="apt"
     )
 
-    transformed_ridership = transform_and_append.override(task_id="transform_ridership")(
+    quality_ridership = run_data_quality.override(task_id="quality_ridership")(
         raw_path=raw_ridership,
         dataset_name="ridership"
     )
-    transformed_apt = transform_and_append.override(task_id="transform_apt")(
+    quality_apt = run_data_quality.override(task_id="quality_apt")(
         raw_path=raw_apt,
         dataset_name="apt"
     )
 
-    quality_ridership = run_data_quality.override(task_id="quality_ridership")(
-        raw_path=transformed_ridership,
-        dataset_name="ridership"
-    )
-    quality_apt = run_data_quality.override(task_id="quality_apt")(
-        raw_path=transformed_apt,
-        dataset_name="apt"
+    apt_lake = append_apt_to_lake(quality_result=quality_apt)
+
+    transformed = transform_ridership(
+        ridership_quality=quality_ridership,
+        apt_lake_path=apt_lake,
     )
 
     write_audit_log([quality_ridership, quality_apt])
