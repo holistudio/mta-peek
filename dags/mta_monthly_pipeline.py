@@ -147,6 +147,26 @@ def mta_pipeline():
                 )
         return {"dataset": dataset_name, "rows": len(df), "path": raw_path}
     
+    def write_audit_log(quality_results: list[dict]):
+        """Append data quality audit log with one record per fetched dataset"""
+        import pandas as pd
+
+        log_path = "data_quality/audit_log.csv"
+        records = pd.DataFrame([
+            {
+                "run_date": datetime.utcnow.isoformat(),
+                "dataset": r["dataset"],
+                "rows_ingested": r["rows"],
+                "source_file": r["path"],
+                "status": "success",
+            }
+            for r in quality_results
+        ])
+        records.to_csv(
+            log_path, mode='a', header=not os.path.exists(log_path),
+            index=False
+        )
+
     raw_ridership = ingest_from_api.override(task_id="ingest_ridership")(
         dataset_id=DATASETS["ridership"]["id"],
         dataset_name="ridership"
@@ -173,5 +193,7 @@ def mta_pipeline():
         raw_path=transformed_apt,
         dataset_name="apt"
     )
+
+    write_audit_log([quality_ridership, quality_apt])
 
 mta_pipeline()
