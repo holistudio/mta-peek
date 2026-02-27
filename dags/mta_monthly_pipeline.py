@@ -70,7 +70,7 @@ def mta_pipeline():
 
         token = os.environ.get("SOCRATA_APP_TOKEN")
         raw_dir = os.environ["DATA_RAW"]
-        config = DATASETS['dataset_name']
+        config = DATASETS[dataset_name]
 
         today = date.today()
 
