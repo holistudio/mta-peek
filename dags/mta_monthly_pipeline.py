@@ -12,7 +12,6 @@ DATASETS = {
             "transit_timestamp",
             "station_complex",
             "station_complex_id",
-            "borough",
             "ridership",
         ],
         "min_rows": 200_000,                        # ~500 complexes × 24h × 30d
@@ -115,7 +114,39 @@ def mta_pipeline():
             raise RuntimeError(f"Spark job failed for {dataset_name}:\n{result.stderr}")
 
         return raw_path
+    
+    @task()
+    def run_data_quality(raw_path: str, dataset_name: str) -> dict:
+        """Validate row counts, nulls, and station names (ridership data only)"""
+        import pandas as pd
+        processed_dir = os.environ["DATA_PROCESSED"]
 
+        config = DATASETS[dataset_name]
+        df = pd.read_parquet(raw_path)
+
+        # check row counts sufficient
+        if len(df) < config["min_rows"]:
+            raise ValueError(f"[{dataset_name}] row count too low: {len(df)}")
+        
+        # check null values for critical columns 
+        # that subsequent computations depend on
+        for col in config["critical_cols"]:
+            null_count = df[col].isna().sum()
+            if null_count > 0:
+                raise ValueError(f"[{dataset_name}] null values in '{col}': {null_count}")
+        
+        # station name check for ridership data only
+        if config["has_station_check"]:
+            known_stations = set(
+                pd.read_parquet(f"{processed_dir}/station_name_check/")["station_complex"]
+            )
+            unexpected = set(df["station_complex"]) - known_stations
+            if len(unexpected) > 10:
+                raise ValueError(
+                    f"[{dataset_name}] has too many unexpected stations: {unexpected}"
+                )
+        return {"dataset": dataset_name, "rows": len(df), "path": raw_path}
+    
     raw_ridership = ingest_from_api.override(task_id="ingest_ridership")(
         dataset_id=DATASETS["ridership"]["id"],
         dataset_name="ridership"
@@ -134,5 +165,13 @@ def mta_pipeline():
         dataset_name="apt"
     )
 
+    quality_ridership = run_data_quality.override(task_id="quality_ridership")(
+        raw_path=transformed_ridership,
+        dataset_name="ridership"
+    )
+    quality_apt = run_data_quality.override(task_id="quality_apt")(
+        raw_path=transformed_apt,
+        dataset_name="apt"
+    )
 
 mta_pipeline()
