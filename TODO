@@ -1,0 +1,23 @@
+# TODOs
+
+## Download 2025 MTA Data
+- [x] MTA Subway Hourly Ridership
+- [x] MTA Subway Customer Journey-Focused Metrics / Additional Platform Time (APT)
+- [x] MTA Subway Stations
+
+## PySpark Transforms
+- [x] Write basic transform script to compute capacity stress index (CSI) for each station-month
+- [x] Add scripts for rolling average CSI time series data
+- [x] Revisit the danger zone rule after looking at visualizations for CSI and APT
+- [x] Revise danger zone rule as percentile-based 
+
+## Dashboard Visualizations
+- [x] Initial experimentation of data visualizations of CSI and ridership volume
+- [x] Add visualizations for rolling average CSI
+- [x] Consider where `danger_zone` stations are visualized/identified.
+- [ ] Revise visualization layout typography
+
+## AirFlow
+- [x] Write automated pipeline DAG to load latest month of MTA data
+- [x] Manually trigger DAG
+- [x] Re-run dashboard notebook to confirm data viz updates
