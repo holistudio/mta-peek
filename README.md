@@ -4,9 +4,13 @@ This project serves as a learning exercise for familiarizing with PySpark and Ai
 
 The underlying analysis uses MTA hourly ridership data for 2025 (with rolling updates from 2026) combined with Additional Platform Time (APT) metrics to identify stations where ridership volume and service delays converge, creating a high risk of overcrowded platforms.
 
-## Basic Steps
+For this project, MTA data for the year 2025 was first downloaded manually and transformed via PySpark for Plotly visualizations in a Jupyter notebook. An Airflow DAG was then tested to fetch subsequent months' MTA data in 2026.
 
 <img src="./assets/00_pipeline.png">
+
+The above Airflow pipeline should automate the fetching and data transformations so that the Jupyter notebook will show the latest month's data in the plots displayed below.
+
+## Basic Steps
 
 0. Setup conda and environment variables via [installation](./INSTALL.md) instructions
 1. Download 2025 data from MTA via Python [script](./spark_jobs/download_mta_ridership.py).
