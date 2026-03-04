@@ -20,7 +20,7 @@ conda activate mta-peek
 (uv) pip install -r requirements.txt
 ```
 
-Airflow
+Install Airflow with specific constraints
 
 ```bash
 AIRFLOW_VERSION=3.1.7
@@ -33,7 +33,7 @@ pip install pyspark==4.1.1 pyarrow==23.0.1 pandas==3.0.1 numpy==2.4.2 sodapy==2.
     ipykernel==7.2.0 ipywidgets==8.1.8 nbformat==5.10.4
 ```
 
-## Setup
+## Terminal Commands
 
 After installation, run these terminal commands before executing other code.
 
@@ -42,8 +42,21 @@ Activate conda environment
 ```bash
 conda activate mta-peek
 ```
+
 Load environment variables
 
 ```bash
 set -a && source .env && set +a
+```
+
+Start Airflow server locally
+
+```bash
+airflow standalone
+```
+
+Make sure the correct DAGs directory is referenced in `airflow.cfg`
+
+```markdown
+dags_folder = /path/to/dags/mta_montly_pipeline.py
 ```
