@@ -15,7 +15,15 @@
 - [x] Initial experimentation of data visualizations of CSI and ridership volume
 - [x] Add visualizations for rolling average CSI
 - [x] Consider where `danger_zone` stations are visualized/identified.
-- [ ] Revise visualization layout typography
+- [x] Ridership by Borough should now distiguish between 2025 and 2026 YTD
+- [x] Danger Zone Subway Stations and Months table should have similar gradient highlights
+- [x] Average Hourly Ridership per Day of Week: Heatmap color scale should get a label and be the same scale across plots
+- [x] Plotly CSI: Danger Zone circles should stick out in red or something
+- [x] Plotly CSI: What makes sense as the X-Y and circle size mappings?
+- [x] Plotly CSI: Aspect ratio
+- [x] Rolling Average CSI: Matplot tweaks outside default colors
+- [x] Rolling Average CSI: Consistent colors across subplots for the different stations.
+- [x] Revise visualization layout typography
 
 ## AirFlow
 - [x] Write automated pipeline DAG to load latest month of MTA data
